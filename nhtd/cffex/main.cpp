@@ -29,30 +29,23 @@ public:
 		_last_sequence = 0;
 		_api = CNhMdApi::CreateMdApi();
 		
-		_socket = new TCPSocket<>([](int errorCode, std::string errorMessage){
-			cout << "Socket creation error:" << errorCode << " : " << errorMessage << endl;
-		});
-
-		_socket->onRawMessageReceived = [](const char* message, int length) {
-			cout << "Message from the Server: " << message << "(" << length << ")" << endl;
-		};
-		_socket->onSocketClosed = [](int errorCode){
-			cout << "Connection closed: " << errorCode << endl;
-		};
-		_socket->Connect("47.98.117.222", 36888, [&] {
-			cout << "Socket Connected" << endl;
-		},
-		[](int errorCode, std::string errorMessage){
-			cout << errorCode << " : " << errorMessage << endl;
-		});
+		
 	}
 
 	~CMdTest()
 	{
-		unSubscribe();
-		usleep(2);
-		_api->Release();
-		_socket->Close();
+		try
+		{
+			unSubscribe();
+			usleep(2);
+			_api->Release();
+			_socket->Close();
+		}
+		catch(...)
+		{
+			cout << "Error : ~CMdTest"  << endl;
+		}
+		
 	}
 public:
 	void OnFrontConnected()
@@ -64,6 +57,11 @@ public:
 	void OnFrontDisConnected()
 	{
 		cout << "OnFrontDisconnected" << endl;
+		usleep(2);
+		if(_socket)
+		{
+			_socket->Close();
+		}
 	}
 
 	void OnRspError(ERRORMSGINFO_t &pRspInfo,TSequenceIDType nRequestID)
@@ -138,7 +136,10 @@ public:
 		datagram += "|";
 		datagram += to_string(pData.update_millisec);
 		datagram += "#";
-		_socket->Send(datagram);
+		if(_socket)
+		{
+			_socket->Send(datagram);
+		}
 	}
 
 	void OnRspUtpLogin(const RspUtpLoginField_t& rsp,TSequenceIDType nRequestID)
@@ -148,6 +149,23 @@ public:
 		{
 			usleep(1000);
 			subscribe();
+			//
+			_socket = new TCPSocket<>([](int errorCode, std::string errorMessage){
+				cout << "Socket creation error:" << errorCode << " : " << errorMessage << endl;
+			});
+
+			_socket->onRawMessageReceived = [](const char* message, int length) {
+				cout << "Message from the Server: " << message << "(" << length << ")" << endl;
+			};
+			_socket->onSocketClosed = [](int errorCode){
+				cout << "Connection closed: " << errorCode << endl;
+			};
+			_socket->Connect("47.98.117.222", 36888, [&] {
+				cout << "Socket Connected" << endl;
+			},
+			[](int errorCode, std::string errorMessage){
+				cout << errorCode << " : " << errorMessage << endl;
+			});
 		}
 	}
 

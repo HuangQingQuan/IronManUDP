@@ -131,6 +131,10 @@ public:
 	virtual void OnFrontConnected()
 	{
 		cout << "OnFrontConnected" << endl;
+		if(m_pTcpSocket)
+		{
+			m_pTcpSocket->Close();
+		}
 		ReqUserLogin();
 	}
 
