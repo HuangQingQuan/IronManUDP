@@ -1,4 +1,4 @@
-#include "tcpsocket.hpp"
+#include "udpsocket.hpp"
 #include "ThostFtdcMdApi.h"
 #include "string.h"
 #include <string>
@@ -6,7 +6,8 @@
 #include <vector>
 
 using namespace std;
-
+constexpr const char* IP = "47.98.117.222";
+constexpr uint16_t PORT = 36888;
 //行情类
 class CSimpleMdHandler : public CThostFtdcMdSpi
 {
@@ -18,8 +19,6 @@ public:
 		{
 			m_pUserMdApi->Release();
 		}
-		m_pTcpSocket->Close();
-		delete m_pTcpSocket;
 	}
 	
 	vector<string> Split(const string &str, const string &pattern)
@@ -40,22 +39,12 @@ public:
 	
 	void ReqServerConnect()
 	{
-		m_pTcpSocket = new TCPSocket<>([](int errorCode, std::string errorMessage){
-			cout << "Socket creation error:" << errorCode << " : " << errorMessage << endl;
-		});
-
-		m_pTcpSocket->onRawMessageReceived = [](const char* message, int length) {
-			cout << "Message from the Server: " << message << "(" << length << ")" << endl;
-		};
-		m_pTcpSocket->onSocketClosed = [](int errorCode){
-			cout << "Connection closed: " << errorCode << endl;
-		};
-		m_pTcpSocket->Connect("127.0.0.1", 36888, [&] {
-			cout << "Socket Connected" << endl;
-		},
-		[](int errorCode, std::string errorMessage){
-			cout << errorCode << " : " << errorMessage << endl;
-		});
+		if(m_pUdpSocket)
+		{
+			m_pUdpSocket->Close();
+		}
+		m_pUdpSocket = new UDPSocket<>(true);
+		m_pUdpSocket->Connect(IP, PORT);
 	}
 
 	void RegisterFensUserInfo()
@@ -131,10 +120,6 @@ public:
 	virtual void OnFrontConnected()
 	{
 		cout << "OnFrontConnected" << endl;
-		if(m_pTcpSocket)
-		{
-			m_pTcpSocket->Close();
-		}
 		ReqUserLogin();
 	}
 
@@ -242,7 +227,10 @@ public:
 			datagram += "|";
 			datagram += to_string(pDepthMarketData->UpdateMillisec);
 			datagram += "#";
-			m_pTcpSocket->Send(datagram);
+			if(m_pUdpSocket)
+			{
+				m_pUdpSocket->SendTo(datagram, IP, PORT);
+			}
 		}
 	};
 
@@ -267,8 +255,8 @@ public:
 private:
 	// 指向CThostFtdcMduserApi实例的指针
 	CThostFtdcMdApi *m_pUserMdApi;
-	// 指向TCPSocket实例的指针
-	TCPSocket<> *m_pTcpSocket;
+	// 指向UDPSocket实例的指针
+	UDPSocket<> *m_pUdpSocket = nullptr;
 };
 
 int main()

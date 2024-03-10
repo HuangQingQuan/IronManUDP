@@ -10,10 +10,13 @@
 #include <sys/time.h>
 #include <string>
 #include <sstream>
-#include "tcpsocket.hpp"
+#include "udpsocket.hpp"
 #include "api/NHMdApi.h"
 
 using namespace std;
+
+constexpr const char* IP = "47.98.117.222";
+constexpr uint16_t PORT = 36888;
 
 class CMdTest:public CNhMdSpi
 {
@@ -29,7 +32,6 @@ public:
 		_last_sequence = 0;
 		_api = CNhMdApi::CreateMdApi();
 		
-		
 	}
 
 	~CMdTest()
@@ -39,7 +41,10 @@ public:
 			unSubscribe();
 			usleep(2);
 			_api->Release();
-			_socket->Close();
+			if(!m_pUdpSocket)
+			{
+				m_pUdpSocket->Close();
+			}
 		}
 		catch(...)
 		{
@@ -57,11 +62,11 @@ public:
 	void OnFrontDisConnected()
 	{
 		cout << "OnFrontDisconnected" << endl;
-		usleep(2);
-		if(_socket)
+		if(!m_pUdpSocket)
 		{
-			_socket->Close();
+			m_pUdpSocket->Close();
 		}
+		usleep(2);
 	}
 
 	void OnRspError(ERRORMSGINFO_t &pRspInfo,TSequenceIDType nRequestID)
@@ -136,37 +141,32 @@ public:
 		datagram += "|";
 		datagram += to_string(pData.update_millisec);
 		datagram += "#";
-		if(_socket)
+		if(!m_pUdpSocket)
 		{
-			_socket->Send(datagram);
+			m_pUdpSocket->SendTo(datagram, IP, PORT);
 		}
 	}
 
 	void OnRspUtpLogin(const RspUtpLoginField_t& rsp,TSequenceIDType nRequestID)
 	{
-		cout << "OnRspUtpLogin" << endl;
+		cout << "OnRspUtpLogin:" << rsp.response_code << endl;
 		if (Err_Succeed == rsp.response_code)
 		{
+			ConnectSocket();
 			usleep(1000);
 			subscribe();
-			//
-			_socket = new TCPSocket<>([](int errorCode, std::string errorMessage){
-				cout << "Socket creation error:" << errorCode << " : " << errorMessage << endl;
-			});
-
-			_socket->onRawMessageReceived = [](const char* message, int length) {
-				cout << "Message from the Server: " << message << "(" << length << ")" << endl;
-			};
-			_socket->onSocketClosed = [](int errorCode){
-				cout << "Connection closed: " << errorCode << endl;
-			};
-			_socket->Connect("47.98.117.222", 36888, [&] {
-				cout << "Socket Connected" << endl;
-			},
-			[](int errorCode, std::string errorMessage){
-				cout << errorCode << " : " << errorMessage << endl;
-			});
 		}
+	}
+	
+	void ConnectSocket()
+	{
+		if(!m_pUdpSocket)
+		{
+			m_pUdpSocket->Close();
+		}
+		usleep(1000);
+		m_pUdpSocket = new UDPSocket<>(true);
+		m_pUdpSocket->Connect(IP, PORT);
 	}
 
 	void OnRspUtpLogout(const RspUtpLogoutField_t& rsp,TSequenceIDType nRequestID)
@@ -224,6 +224,10 @@ public:
 		int rc = _api->ReqUtpLogout(reqId);
 		if (0 != rc)
 		{
+			if(rc == 16)
+			{
+				ConnectSocket();
+			}
 			cout <<"ReqUtpLogout:ret:" << rc << "|reqId:" << reqId << endl;
 		}
 		return rc;
@@ -299,7 +303,8 @@ private:
 	int _recCount;
 	int _requestID;
 	CNhMdApi *_api;
-	TCPSocket<> *_socket;
+	// 指向UDPSocket实例的指针
+	UDPSocket<> *m_pUdpSocket = {0};
 };
 
 CMdTest *testApi = NULL;
