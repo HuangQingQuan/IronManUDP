@@ -10,6 +10,8 @@
 #include <sys/time.h>
 #include <string>
 #include <sstream>
+#include <algorithm>
+#include <fstream>
 #include "udpsocket.hpp"
 #include "api/NHMdApi.h"
 
@@ -31,7 +33,19 @@ public:
 		_recCount = 0;
 		_last_sequence = 0;
 		_api = CNhMdApi::CreateMdApi();
-		
+		// read config
+		ifstream  fin;
+		fin.open("config",ios::in);
+		if(!fin)
+		{
+			std::cerr<<"cannot open the file";
+		}
+		char buf[1024]={0};
+		while (fin >> buf)
+		{
+			md_InstrumentID.push_back(buf);
+		}
+		cout << "Instrument Size:" << md_InstrumentID.size() << endl;
 	}
 
 	~CMdTest()
@@ -43,7 +57,7 @@ public:
 			_api->Release();
 			if(!m_pUdpSocket)
 			{
-				m_pUdpSocket->Close();
+				m_pUdpSocket = NULL;
 			}
 		}
 		catch(...)
@@ -64,7 +78,7 @@ public:
 		cout << "OnFrontDisconnected" << endl;
 		if(!m_pUdpSocket)
 		{
-			m_pUdpSocket->Close();
+			m_pUdpSocket = NULL;
 		}
 		usleep(2);
 	}
@@ -76,73 +90,74 @@ public:
 
 	void OnRtnMarketData(STKMarketData_t &pData)
 	{
-		string datagram = "";
-		datagram += pData.instrument_id;
-		datagram += "|";
-		datagram += pData.exchange_id;
-		datagram += "|";
-		datagram += to_string((pData.last_price > 10000000) ? 0 : pData.last_price);
-		datagram += "|";
-		datagram += to_string((pData.open_price > 10000000) ? 0 : pData.open_price);
-		datagram += "|";
-		datagram += to_string((pData.highest_price > 10000000) ? 0 : pData.highest_price);
-		datagram += "|";
-		datagram += to_string((pData.lowest_price > 10000000) ? 0 : pData.lowest_price);
-		datagram += "|";
-		datagram += to_string((pData.upper_limit_price > 10000000) ? 0 : pData.upper_limit_price);
-		datagram += "|";
-		datagram += to_string((pData.lower_limit_price > 10000000) ? 0 : pData.lower_limit_price);
-		datagram += "|";
-		datagram += to_string(pData.volume);
-		datagram += "|";
-		datagram += to_string(pData.open_interest);
-		datagram += "|";
-		datagram += to_string((pData.bid_price1 > 10000000) ? 0 : pData.bid_price1);
-		datagram += "|";
-		datagram += to_string(pData.bid_volume1);
-		datagram += "|";
-		datagram += to_string((pData.ask_price1 > 10000000) ? 0 : pData.ask_price1);
-		datagram += "|";
-		datagram += to_string(pData.ask_volume1);
-		datagram += "|";
-		datagram += to_string((pData.bid_price2 > 10000000) ? 0 : pData.bid_price2);
-		datagram += "|";
-		datagram += to_string(pData.bid_volume2);
-		datagram += "|";
-		datagram += to_string((pData.ask_price2 > 10000000) ? 0 : pData.ask_price2);
-		datagram += "|";
-		datagram += to_string(pData.ask_volume2);
-		datagram += "|";
-		datagram += to_string((pData.bid_price3 > 10000000) ? 0 : pData.bid_price3);
-		datagram += "|";
-		datagram += to_string(pData.bid_volume3);
-		datagram += "|";
-		datagram += to_string((pData.ask_price3 > 10000000) ? 0 : pData.ask_price3);
-		datagram += "|";
-		datagram += to_string(pData.ask_volume3);
-		datagram += "|";
-		datagram += to_string((pData.bid_price4 > 10000000) ? 0 : pData.bid_price4);
-		datagram += "|";
-		datagram += to_string(pData.bid_volume4);
-		datagram += "|";
-		datagram += to_string((pData.ask_price4 > 10000000) ? 0 : pData.ask_price4);
-		datagram += "|";
-		datagram += to_string(pData.ask_volume4);
-		datagram += "|";
-		datagram += to_string((pData.bid_price5 > 10000000) ? 0 : pData.bid_price5);
-		datagram += "|";
-		datagram += to_string(pData.bid_volume5);
-		datagram += "|";
-		datagram += to_string((pData.ask_price5 > 10000000) ? 0 : pData.ask_price5);
-		datagram += "|";
-		datagram += to_string(pData.ask_volume5);
-		datagram += "|";
-		datagram += pData.update_time;
-		datagram += "|";
-		datagram += to_string(pData.update_millisec);
-		datagram += "#";
-		if(!m_pUdpSocket)
+		if (std::find(md_InstrumentID.begin(), md_InstrumentID.end(), pData.instrument_id) != md_InstrumentID.end())
 		{
+			string datagram = "";
+			datagram += pData.instrument_id;
+			datagram += "|";
+			datagram += pData.exchange_id;
+			datagram += "|";
+			datagram += to_string((pData.last_price > 10000000) ? 0 : pData.last_price);
+			datagram += "|";
+			datagram += to_string((pData.open_price > 10000000) ? 0 : pData.open_price);
+			datagram += "|";
+			datagram += to_string((pData.highest_price > 10000000) ? 0 : pData.highest_price);
+			datagram += "|";
+			datagram += to_string((pData.lowest_price > 10000000) ? 0 : pData.lowest_price);
+			datagram += "|";
+			datagram += to_string((pData.upper_limit_price > 10000000) ? 0 : pData.upper_limit_price);
+			datagram += "|";
+			datagram += to_string((pData.lower_limit_price > 10000000) ? 0 : pData.lower_limit_price);
+			datagram += "|";
+			datagram += to_string(pData.volume);
+			datagram += "|";
+			datagram += to_string(pData.open_interest);
+			datagram += "|";
+			datagram += to_string((pData.bid_price1 > 10000000) ? 0 : pData.bid_price1);
+			datagram += "|";
+			datagram += to_string(pData.bid_volume1);
+			datagram += "|";
+			datagram += to_string((pData.ask_price1 > 10000000) ? 0 : pData.ask_price1);
+			datagram += "|";
+			datagram += to_string(pData.ask_volume1);
+			datagram += "|";
+			datagram += to_string((pData.bid_price2 > 10000000) ? 0 : pData.bid_price2);
+			datagram += "|";
+			datagram += to_string(pData.bid_volume2);
+			datagram += "|";
+			datagram += to_string((pData.ask_price2 > 10000000) ? 0 : pData.ask_price2);
+			datagram += "|";
+			datagram += to_string(pData.ask_volume2);
+			datagram += "|";
+			datagram += to_string((pData.bid_price3 > 10000000) ? 0 : pData.bid_price3);
+			datagram += "|";
+			datagram += to_string(pData.bid_volume3);
+			datagram += "|";
+			datagram += to_string((pData.ask_price3 > 10000000) ? 0 : pData.ask_price3);
+			datagram += "|";
+			datagram += to_string(pData.ask_volume3);
+			datagram += "|";
+			datagram += to_string((pData.bid_price4 > 10000000) ? 0 : pData.bid_price4);
+			datagram += "|";
+			datagram += to_string(pData.bid_volume4);
+			datagram += "|";
+			datagram += to_string((pData.ask_price4 > 10000000) ? 0 : pData.ask_price4);
+			datagram += "|";
+			datagram += to_string(pData.ask_volume4);
+			datagram += "|";
+			datagram += to_string((pData.bid_price5 > 10000000) ? 0 : pData.bid_price5);
+			datagram += "|";
+			datagram += to_string(pData.bid_volume5);
+			datagram += "|";
+			datagram += to_string((pData.ask_price5 > 10000000) ? 0 : pData.ask_price5);
+			datagram += "|";
+			datagram += to_string(pData.ask_volume5);
+			datagram += "|";
+			datagram += pData.update_time;
+			datagram += "|";
+			datagram += to_string(pData.update_millisec);
+			datagram += "#";
+			//
 			m_pUdpSocket->SendTo(datagram, IP, PORT);
 		}
 	}
@@ -160,13 +175,20 @@ public:
 	
 	void ConnectSocket()
 	{
-		if(!m_pUdpSocket)
+		try
 		{
-			m_pUdpSocket->Close();
+			if(!m_pUdpSocket)
+			{
+				m_pUdpSocket = NULL;
+			}
+			usleep(1000);
+			m_pUdpSocket = new UDPSocket<>(true);
+			m_pUdpSocket->Connect(IP, PORT);
 		}
-		usleep(1000);
-		m_pUdpSocket = new UDPSocket<>(true);
-		m_pUdpSocket->Connect(IP, PORT);
+		catch(exception& e)
+		{
+			cout << "Standard exception: " << e.what() << endl;
+		}
 	}
 
 	void OnRspUtpLogout(const RspUtpLogoutField_t& rsp,TSequenceIDType nRequestID)
@@ -213,6 +235,10 @@ public:
 		int rc = _api->ReqUtpLogin(request,reqId);
 		if (0 != rc)
 		{
+			if(rc == 16)
+			{
+				ConnectSocket();
+			}
 			cout <<"ReqUtpLogin:ret:" << rc << "|reqId:" << reqId << endl;
 		}
 		return rc;
@@ -224,10 +250,6 @@ public:
 		int rc = _api->ReqUtpLogout(reqId);
 		if (0 != rc)
 		{
-			if(rc == 16)
-			{
-				ConnectSocket();
-			}
 			cout <<"ReqUtpLogout:ret:" << rc << "|reqId:" << reqId << endl;
 		}
 		return rc;
@@ -304,7 +326,8 @@ private:
 	int _requestID;
 	CNhMdApi *_api;
 	// 指向UDPSocket实例的指针
-	UDPSocket<> *m_pUdpSocket = {0};
+	UDPSocket<> *m_pUdpSocket = NULL;
+	vector<string> md_InstrumentID;
 };
 
 CMdTest *testApi = NULL;
