@@ -278,13 +278,14 @@ int main()
 	std::string mdAddr = "tcp://180.169.30.170:41215";
 	pUserMdApi->RegisterFront(const_cast<char *>(mdAddr.c_str()));
 	pUserMdApi->Init();
-
+	/*
     string input;
     getline(cin, input);
     while (input != "exit")
     {
         getline(cin, input);
     }
-
+	*/
+	pause();
     return 0;
 }
