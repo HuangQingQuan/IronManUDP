@@ -90,7 +90,8 @@ public:
 
 	void OnRtnMarketData(STKMarketData_t &pData)
 	{
-		if (std::find(md_InstrumentID.begin(), md_InstrumentID.end(), pData.instrument_id) != md_InstrumentID.end())
+		// if (std::find(md_InstrumentID.begin(), md_InstrumentID.end(), pData.instrument_id) != md_InstrumentID.end())
+		if(strlen(pData.instrument_id) <= 7)
 		{
 			string datagram = "";
 			datagram += pData.instrument_id;

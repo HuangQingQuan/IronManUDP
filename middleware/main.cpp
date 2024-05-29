@@ -2,21 +2,15 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <chrono>
-#include <ctime>
+#include <map>
+#include <algorithm>
 
 using namespace std;
 
-struct CClient {
-	string ipv4;
-	uint16_t port;
-	std::chrono::time_point<std::chrono::system_clock> last_seen;
-};
-
 int main()
 {
-	vector<CClient> clients;
-	std::chrono::seconds timeout(300);
+	vector<string> vector_ipv4;
+	vector<uint16_t> vector_port;
 	// UDP Server
 	UDPServer<> udpServer;
 	udpServer.Bind(36888, [](int errorCode, string errorMessage) {
@@ -24,46 +18,52 @@ int main()
     });
 	// Welcome!
 	udpServer.onMessageReceived = [&](string message, string ipv4, uint16_t port) {
-		auto now = std::chrono::system_clock::now();
 		if(message == "CC268895-C515-19A7-F127-B3464777F7DD")
 		{
-			time_t tt = std::chrono::system_clock::to_time_t(now);
-			// cout << ctime(&tt) << ipv4 << ":" << port << endl;
-			// clear the dropped client
-			for(auto it = clients.begin(); it != clients.end();)
-			{
-				if(now - it->last_seen > timeout)
+			bool found = false;
+			for (auto i = 0; i < vector_ipv4.size(); ++i) {
+				if (vector_ipv4[i] == ipv4 && vector_port[i] == port)
 				{
-					it = clients.erase(it);
-				}
-				else
-				{
-					++it;
+					found = true;
 				}
 			}
-			// query the disconnected client
-			bool found = false;
-			for(auto& client:clients)
+			if(found)
 			{
-				if(client.ipv4 == ipv4 && client.port == port)
+				return;
+			}
+			cout << "[client]" << ipv4 << ":" << port << endl;
+			vector_ipv4.push_back(ipv4);
+			vector_port.push_back(port);
+			return;
+		}
+		if(message == "QUIT")
+		{
+			cout << "quit before:" << vector_ipv4.size() << endl;
+			for(int i = 0; i < vector_ipv4.size(); i++)
+			{
+				if(vector_ipv4.at(i) == ipv4 && vector_port.at(i) == port)
 				{
-					client.last_seen = now;
-					found = true;
+					cout << "quit ipv4:" << ipv4 << ":" << port << endl;
+					vector_ipv4.erase(vector_ipv4.begin() + i);
+					vector_port.erase(vector_port.begin() + i);
 					break;
 				}
 			}
-			if(!found)
-			{
-				CClient client_ = {ipv4, port, now};
-				clients.push_back(client_);
-			}
+			cout << "quit after:" << vector_ipv4.size() << endl;
+			cout << endl;
+			return;
 		}
 		if(ipv4 == "1.193.38.118" || ipv4 == "210.22.136.66" || ipv4 == "101.230.112.6" || ipv4 == "112.65.181.210" || ipv4 == "47.98.117.222" || ipv4 == "157.122.224.92" || ipv4 == "121.33.194.138")
 		{
-			for(auto& client:clients)
+			// cout << message << endl;
+			for(int i = 0; i < vector_ipv4.size(); i++)
 			{
-				udpServer.SendTo(message, client.ipv4, client.port);
-				// cout << client.ipv4 << ":" << client.port << endl;
+				int res = udpServer.SendTo(message, vector_ipv4.at(i), vector_port.at(i));
+				if(res == -1)
+				{
+					vector_ipv4.erase(vector_ipv4.begin() + i);
+					vector_port.erase(vector_port.begin() + i);
+				}
 			}
 		}
     };
