@@ -1,21 +1,24 @@
 #include "udpsocket.hpp"
-#include "ThostFtdcMdApi.h"
-#include "string.h"
-#include <string>
 #include <iostream>
 #include <fstream>
+#include <stdio.h>
+#include <string.h>
+#include <float.h>
 #include <vector>
+#include "QdFtdcMdApi.h"
 
 using namespace std;
 constexpr const char* IP = "47.98.117.222";
 constexpr uint16_t PORT = 36888;
-//行情类
-class CSimpleMdHandler : public CThostFtdcMdSpi
+
+class CSimpleHandler : public CQdFtdcMduserSpi
 {
 public:
-	// 构造函数，需要一个有效的指向CThostFtdcMduserApi实例的指针
-	CSimpleMdHandler(CThostFtdcMdApi *pUserApi) : m_pUserMdApi(pUserApi) {}
-	~CSimpleMdHandler() {
+	CSimpleHandler(CQdFtdcMduserApi *pUserApi) : m_pUserMdApi(pUserApi) {
+		
+	}
+
+	~CSimpleHandler() {
 		if(m_pUserMdApi)
 		{
 			m_pUserMdApi->Release();
@@ -31,58 +34,46 @@ public:
 		m_pUdpSocket = new UDPSocket<>(true);
 		m_pUdpSocket->Connect(IP, PORT);
 	}
-
-	void RegisterFensUserInfo()
+	
+	void OnFrontConnected()
 	{
+		cout << "OnFrontConnected" << endl;
+		ReqUserLogin();
+	}
+
+	void OnFrontDisconnected()
+	{
+		printf("OnFrontDisconnected.\n");
 	}
 
 	void ReqUserLogin()
 	{
-		CThostFtdcReqUserLoginField reqUserLogin = { 0 };
-		std::string borkerID = "8050";
-		std::string userID = "70211502";
-		strcpy(reqUserLogin.BrokerID, borkerID.c_str());
-		strcpy(reqUserLogin.UserID, userID.c_str());
+		CQdFtdcReqUserLoginField reqUserLogin;
+		strcpy(reqUserLogin.TradingDay, m_pUserMdApi->GetTradingDay());
+		strcpy(reqUserLogin.BrokerID, "2016");
+		strcpy(reqUserLogin.UserID, "01020249");
+		strcpy(reqUserLogin.Password, "830914zsz");
 		int num = m_pUserMdApi->ReqUserLogin(&reqUserLogin, nRequestID++);
 		cout << "ReqUserLogin:" << num << endl;
 	}
-
-	void ReqUserLogout()
-	{
-		cout << "ReqUserLogout" << endl;
-	}
 	
-	void ReqQryInstrument()
-	{
-		CThostFtdcQryInstrumentField reqQryInstrument = { 0 };
-		int num = m_pUserApi->ReqQryInstrument(&reqQryInstrument, nRequestID++);
-		cout << "ReqQryInstrument:" << num << endl;
-	}
-
-	virtual void OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
-	{
-		CTraderSpi::OnRspQryInstrument(pInstrument, pRspInfo, nRequestID, bIsLast);
-		if (pInstrument)
-		{
-			// std::string exchangeID = pInstrument->ExchangeID;
-			// std::string ine = "INE";
-			// std::string shfe = "SHFE";
-			// if((exchangeID.compare(ine)) == 0 || (exchangeID.compare(shfe)) == 0)
-			if(strcmp(pInstrument->ExchangeID, "INE") == 0 || strcmp(pInstrument->ExchangeID, "SHFE") == 0)
-			{
-				md_InstrumentID.push_back(pInstrument->InstrumentID);
-			}
-		}
-		if (bIsLast)
-		{
-			SubscribeMarketData();
-		}
-	}
-
 	void SubscribeMarketData()
 	{
 		int md_num = 0;
 		char **ppInstrumentID = new char*[5000];
+		// read config
+		vector<string> md_InstrumentID;
+		ifstream  fin;
+		fin.open("config",ios::in);
+		if(!fin)
+		{
+			std::cerr<<"cannot open the file";
+		}
+		char buf[1024]={0};
+		while (fin >> buf)
+		{
+			md_InstrumentID.push_back(buf);
+		}
 		cout << "SubscribeMarketData, size=" << md_InstrumentID.size() << endl;
 		for (int count1 = 0; count1 <= md_InstrumentID.size() / 500; count1++)
 		{
@@ -94,7 +85,7 @@ public:
 					ppInstrumentID[a] = const_cast<char *>(md_InstrumentID.at(md_num).c_str());
 					md_num++;
 				}
-				int result = m_pUserMdApi->SubscribeMarketData(ppInstrumentID, a);
+				int result = m_pUserMdApi->SubMarketData(ppInstrumentID, a);
 			}
 			else if (count1 == md_InstrumentID.size() / 500)
 			{
@@ -104,71 +95,21 @@ public:
 					ppInstrumentID[count2] = const_cast<char *>(md_InstrumentID.at(md_num).c_str());
 					md_num++;
 				}
-				int result = m_pUserMdApi->SubscribeMarketData(ppInstrumentID, count2);
+				int result = m_pUserMdApi->SubMarketData(ppInstrumentID, count2);
 				cout << "SubscribeMarketData:" << result << endl;
 			}
 		}
 	}
-	
-	///订阅询价请求
-	void SubscribeForQuoteRsp()
-	{
-	}
 
-	void UnSubscribeMarketData()
+	void OnRspUserLogin(CQdFtdcRspUserLoginField *pRspUserLogin, CQdFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 	{
-	}
-
-	void UnSubscribeForQuoteRsp()
-	{
-	}
-
-	void ReqQryMulticastInstrument()
-	{
-	}
-
-	virtual void OnFrontConnected()
-	{
-		cout << "OnFrontConnected" << endl;
-		ReqUserLogin();
-	}
-
-	virtual void OnHeartBeatWarning(int nTimeLapse)
-	{
-		cout << "OnHeartBeatWarning, nTimeLapse=" << nTimeLapse << endl;
-	}
-
-	// 当客户端与交易托管系统通信连接断开时，该方法被调用
-	virtual void OnFrontDisconnected(int nReason)
-	{
-		cout << "OnFrontDisconnected, nReason=" << nReason << endl;
-	}
-
-	// 当客户端发出登录请求之后，该方法会被调用，通知客户端登录是否成功
-	virtual void OnRspUserLogin(CThostFtdcRspUserLoginField *pRspUserLogin, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
-	{
-		cout << "ErrorMsg=" << pRspInfo->ErrorID << ",ErrorID=" << pRspInfo->ErrorMsg;
 		if (pRspInfo->ErrorID == 0) {
-			ReqQryInstrument();
+			SubscribeMarketData();
 			ReqServerConnect();
 		}
 	}
 
-	///登出请求响应
-	virtual void OnRspUserLogout(CThostFtdcUserLogoutField* pUserLogout, CThostFtdcRspInfoField* pRspInfo, int nRequestID, bool bIsLast)
-	{
-	}
-
-	virtual void OnRspUnSubMarketData(CThostFtdcSpecificInstrumentField *pSpecificInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
-	{
-	};
-
-	virtual void OnRspSubMarketData(CThostFtdcSpecificInstrumentField *pSpecificInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
-	{
-	};
-
-	///深度行情通知
-	virtual void OnRtnDepthMarketData(CThostFtdcDepthMarketDataField *pDepthMarketData)
+	void OnRtnDepthMarketData(CQdFtdcDepthMarketDataField *pDepthMarketData)
 	{
 		if (pDepthMarketData)
 		{
@@ -242,51 +183,32 @@ public:
 				m_pUdpSocket->SendTo(datagram, IP, PORT);
 			}
 		}
-	};
-
-
-	virtual void OnRspSubForQuoteRsp(CThostFtdcSpecificInstrumentField *pSpecificInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
-	{
-	};
-
-	virtual void OnRspUnSubForQuoteRsp(CThostFtdcSpecificInstrumentField *pSpecificInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
-	{
-	};
-
-	///询价通知
-	virtual void OnRtnForQuoteRsp(CThostFtdcForQuoteRspField *pForQuoteRsp)
-	{
 	}
 
-	virtual void OnRspQryMulticastInstrument(CThostFtdcMulticastInstrumentField *pMulticastInstrument, CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
+	void OnRspError(CQdFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast)
 	{
-	};
+		printf("OnRspError:\n");
+		printf("ErrorCode=[%d], ErrorMsg=[%s]\n", pRspInfo->ErrorID, pRspInfo->ErrorMsg);
+		printf("RequestID=[%d], Chain=[%d]\n", nRequestID, bIsLast);
+	}
 
 private:
-	// 指向CThostFtdcMduserApi实例的指针
-	CThostFtdcMdApi *m_pUserMdApi;
-	// 指向UDPSocket实例的指针
+	CQdFtdcMduserApi *m_pUserMdApi;
 	UDPSocket<> *m_pUdpSocket = nullptr;
 	int nRequestID = 0;
-	vector<string> md_InstrumentID;
 };
 
 int main()
 {
-    CThostFtdcMdApi *pUserMdApi = CThostFtdcMdApi::CreateFtdcMdApi(".\\flow\\", false, false);
-	CSimpleMdHandler ash(pUserMdApi);
-	pUserMdApi->RegisterSpi(&ash);
-	std::string mdAddr = "tcp://180.169.30.170:41215";
-	pUserMdApi->RegisterFront(const_cast<char *>(mdAddr.c_str()));
-	pUserMdApi->Init();
-    /*
-    string input;
-    getline(cin, input);
-    while (input != "exit")
-    {
-        getline(cin, input);
-    }
-    */
+
+	CQdFtdcMduserApi *pUserApi = CQdFtdcMduserApi::CreateFtdcMduserApi();
+	CSimpleHandler *sh = new CSimpleHandler(pUserApi);
+	pUserApi->RegisterSpi(sh);
+	std::string mdAddr = "tcp://59.46.178.11:29895";
+	pUserApi->RegisterFront(const_cast<char *>(mdAddr.c_str()));
+	pUserApi->Init();
+
+	pUserApi->Join();
     pause();
     return 0;
 }

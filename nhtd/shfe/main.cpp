@@ -22,22 +22,6 @@ public:
 		}
 	}
 	
-	vector<string> Split(const string &str, const string &pattern)
-	{
-		//const char* convert to char*
-		char * strc = new char[strlen(str.c_str()) + 1];
-		strcpy(strc, str.c_str());
-		vector<string> resultVec;
-		char* tmpStr = strtok(strc, pattern.c_str());
-		while (tmpStr != NULL)
-		{
-			resultVec.push_back(string(tmpStr));
-			tmpStr = strtok(NULL, pattern.c_str());
-		}
-		delete[] strc;
-		return resultVec;
-	}
-	
 	void ReqServerConnect()
 	{
 		if(m_pUdpSocket)
@@ -59,8 +43,8 @@ public:
 		std::string userID = "70211502";
 		strcpy(reqUserLogin.BrokerID, borkerID.c_str());
 		strcpy(reqUserLogin.UserID, userID.c_str());
-		int num = m_pUserMdApi->ReqUserLogin(&reqUserLogin, 2);
-		cout << "ReqUserLogin:" <<num << endl;
+		int num = m_pUserMdApi->ReqUserLogin(&reqUserLogin, nRequestID++);
+		cout << "ReqUserLogin:" << num << endl;
 	}
 
 	void ReqUserLogout()
@@ -269,6 +253,7 @@ private:
 	CThostFtdcMdApi *m_pUserMdApi;
 	// 指向UDPSocket实例的指针
 	UDPSocket<> *m_pUdpSocket = nullptr;
+	int nRequestID = 0;
 };
 
 int main()
