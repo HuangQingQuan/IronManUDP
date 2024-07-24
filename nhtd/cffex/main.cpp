@@ -5,7 +5,6 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <string>
@@ -91,7 +90,8 @@ public:
 	void OnRtnMarketData(STKMarketData_t &pData)
 	{
 		// if (std::find(md_InstrumentID.begin(), md_InstrumentID.end(), pData.instrument_id) != md_InstrumentID.end())
-		if(strlen(pData.instrument_id) <= 7)
+		// if(strchr(pData.instrument_id, '-') == 0)
+		if(pData.instrument_id[7] == '\0')
 		{
 			string datagram = "";
 			datagram += pData.instrument_id;

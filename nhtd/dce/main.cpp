@@ -208,7 +208,7 @@ int main()
 	pUserApi->RegisterFront(const_cast<char *>(mdAddr.c_str()));
 	pUserApi->Init();
 
-	pUserApi->Join();
+	// pUserApi->Join();
     pause();
     return 0;
 }
