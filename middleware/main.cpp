@@ -55,7 +55,6 @@ int main()
 		}
 		if(ipv4 == "1.193.38.118" || ipv4 == "210.22.136.66" || ipv4 == "101.230.112.6" || ipv4 == "112.65.181.210" || ipv4 == "47.98.117.222" || ipv4 == "157.122.224.92" || ipv4 == "121.33.194.138")
 		{
-			// cout << message << endl;
 			for(int i = 0; i < vector_ipv4.size(); i++)
 			{
 				int res = udpServer.SendTo(message, vector_ipv4.at(i), vector_port.at(i));

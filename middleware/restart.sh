@@ -5,4 +5,5 @@ do
   echo "KILL the Middleware"
   kill -9 $i
 done
-nohup /root/async-socket-md/middleware/Middleware &
+cd /root/async-sockets-md/middleware
+nohup ./Middleware > /root/async-sockets-md/middleware/daily.log 2>&1 &
